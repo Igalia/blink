@@ -24,6 +24,8 @@
 #include "RuntimeEnabledFeatures.h"
 #include "core/dom/Document.h"
 #include "core/dom/Element.h"
+#include "core/dom/NodeTraversal.h"
+#include "core/dom/Range.h"
 #include "core/html/HTMLDialogElement.h"
 #include "core/html/HTMLFrameOwnerElement.h"
 #include "core/html/HTMLIFrameElement.h"
@@ -711,11 +713,33 @@ IntRect RenderView::selectionBounds(bool clipToVisibleContent) const
 
 void RenderView::repaintSelection() const
 {
+    repaintSelectionOld();
+    for (RenderObject* child = firstChild()->nextSibling(); child; child = child->nextSibling()) {
+        RenderFlowThread* flowThread = (RenderFlowThread*) child;
+        repaintSelectionOld(flowThread);
+    }
+}
+
+void RenderView::repaintSelectionOld(RenderFlowThread* flowThread) const
+{
     HashSet<RenderBlock*> processedBlocks;
 
-    RenderObject* end = rendererAfterPosition(m_selectionEnd, m_selectionEndPos);
-    for (RenderObject* o = m_selectionStart; o && o != end; o = o->nextInPreOrder()) {
-        if (!o->canBeSelectionLeaf() && o != m_selectionStart && o != m_selectionEnd)
+    RenderObject* selectionStart;
+    RenderObject* selectionEnd;
+    int selectionEndPos;
+    if (flowThread) {
+        selectionStart = flowThread->selectionStart();
+        selectionEnd = flowThread->selectionEnd();
+        selectionEndPos = flowThread->selectionEndPos();
+    } else {
+        selectionStart = m_selectionStart;
+        selectionEnd = m_selectionEnd;
+        selectionEndPos = m_selectionEndPos;
+    }
+
+    RenderObject* end = rendererAfterPosition(selectionEnd, selectionEndPos);
+    for (RenderObject* o = selectionStart; o && o != end; o = o->nextInPreOrder()) {
+        if (!o->canBeSelectionLeaf() && o != selectionStart && o != selectionEnd)
             continue;
         if (o->selectionState() == SelectionNone)
             continue;
@@ -767,7 +791,82 @@ static inline RenderObject* getNextOrPrevRenderObjectBasedOnDirection(const Rend
 
 void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode blockRepaintMode)
 {
-    // This code makes no assumptions as to if the rendering tree is up to date or not
+    // Get ranges
+    typedef HashMap<const RenderObject*, RefPtr<Range> > RenderTreesMap;
+    RenderTreesMap renderTreesMap;
+
+    // Initializate map for RenderView and all RenderFlowThreads
+    renderTreesMap.set(this, 0);
+    for (RenderObject* child = firstChild()->nextSibling(); child; child = child->nextSibling()) {
+        renderTreesMap.set(child, 0);
+    }
+
+    if (start && end) {
+        RefPtr<Range> initialRange = Range::create(document(), start->node(), startPos, end->node(), endPos);
+
+        Node* startNode = initialRange->startContainer();
+        Node* endNode = initialRange->endContainer();
+        Node* stopNode = initialRange->pastLastNode();
+
+        for (Node* node = startNode; node != stopNode; node = NodeTraversal::next(*node)) {
+            RenderObject* renderer = node->renderer();
+            if (!renderer || !renderer->canBeSelectionLeaf())
+                continue;
+
+            RenderObject* treeRoot = this;
+            RenderFlowThread* flowThread = renderer->flowThreadContainingBlock();
+            if (flowThread)
+                treeRoot = flowThread;
+
+            if (!renderTreesMap.get(treeRoot)) {
+                RefPtr<Range> newRange = Range::create(document());
+
+                int startOffset = 0;
+                if (node == startNode)
+                    startOffset = startPos;
+                newRange->setStart(node, startOffset);
+
+                renderTreesMap.set(treeRoot, newRange);
+            }
+            RefPtr<Range> range = renderTreesMap.get(treeRoot);
+
+            int endOffset = node->offsetInCharacters() ? node->maxCharacterOffset() : node->childNodeCount();
+            if (node == endNode)
+                endOffset = endPos;
+            range->setEnd(node, endOffset);
+        }
+    }
+
+    for (RenderTreesMap::iterator i = renderTreesMap.begin(); i != renderTreesMap.end(); ++i) {
+        const RenderObject* treeRoot = i->key;
+        RenderFlowThread* flowThread = (treeRoot->isRenderFlowThread()) ? (RenderFlowThread*) treeRoot : 0;
+
+        RefPtr<Range> range = i->value;
+
+        RenderObject* newStart;
+        int newStartPos;
+        RenderObject* newEnd;
+        int newEndPos;
+
+        if (range) {
+            newStart = range->startContainer()->renderer();
+            newStartPos = range->startOffset();
+            newEnd = range->endContainer()->renderer();
+            newEndPos = range->endOffset();
+        } else {
+            newStart = 0;
+            newStartPos = -1;
+            newEnd = 0;
+            newEndPos = -1;
+        }
+
+        setSelectionOld(newStart, newStartPos, newEnd, newEndPos, blockRepaintMode, flowThread);
+    }
+}
+
+void RenderView::setSelectionOld(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode blockRepaintMode, RenderFlowThread* flowThread)
+{
+    // This code takes no assumptions as to if the rendering tree is up to date or not
     // and will not try to update it. Currently clearSelection calls this
     // (intentionally) without updating the rendering tree as it doesn't care.
     // Other callers may want to force recalc style before calling this.
@@ -777,15 +876,31 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
     if ((start && !end) || (end && !start))
         return;
 
+    RenderObject* selectionStart;
+    int selectionStartPos;
+    RenderObject* selectionEnd;
+    int selectionEndPos;
+    if (flowThread) {
+        selectionStart = flowThread->selectionStart();
+        selectionStartPos = flowThread->selectionStartPos();
+        selectionEnd = flowThread->selectionEnd();
+        selectionEndPos = flowThread->selectionEndPos();
+    } else {
+        selectionStart = m_selectionStart;
+        selectionStartPos = m_selectionStartPos;
+        selectionEnd = m_selectionEnd;
+        selectionEndPos = m_selectionEndPos;
+    }
+
     // Just return if the selection hasn't changed.
-    if (m_selectionStart == start && m_selectionStartPos == startPos &&
-        m_selectionEnd == end && m_selectionEndPos == endPos)
+    if (selectionStart == start && selectionStartPos == startPos &&
+        selectionEnd == end && selectionEndPos == endPos)
         return;
 
     // Record the old selected objects.  These will be used later
     // when we compare against the new selected objects.
-    int oldStartPos = m_selectionStartPos;
-    int oldEndPos = m_selectionEndPos;
+    int oldStartPos = selectionStartPos;
+    int oldEndPos = selectionEndPos;
 
     // Objects each have a single selection rect to examine.
     typedef HashMap<RenderObject*, OwnPtr<RenderSelectionInfo> > SelectedObjectMap;
@@ -799,17 +914,17 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
     SelectedBlockMap oldSelectedBlocks;
     SelectedBlockMap newSelectedBlocks;
 
-    RenderObject* os = m_selectionStart;
-    RenderObject* stop = rendererAfterPosition(m_selectionEnd, m_selectionEndPos);
+    RenderObject* os = selectionStart;
+    RenderObject* stop = rendererAfterPosition(selectionEnd, selectionEndPos);
     bool exploringBackwards = false;
     bool continueExploring = os && (os != stop);
     while (continueExploring) {
-        if ((os->canBeSelectionLeaf() || os == m_selectionStart || os == m_selectionEnd) && os->selectionState() != SelectionNone) {
+        if ((os->canBeSelectionLeaf() || os == selectionStart || os == selectionEnd) && os->selectionState() != SelectionNone) {
             // Blocks are responsible for painting line gaps and margin gaps.  They must be examined as well.
             oldSelectedObjects.set(os, adoptPtr(new RenderSelectionInfo(os, true)));
             if (blockRepaintMode == RepaintNewXOROld) {
                 RenderBlock* cb = os->containingBlock();
-                while (cb && !cb->isRenderView()) {
+                while (cb && !cb->isRenderView() && !cb->isRenderFlowThread()) {
                     OwnPtr<RenderBlockSelectionInfo>& blockInfo = oldSelectedBlocks.add(cb, nullptr).iterator->value;
                     if (blockInfo)
                         break;
@@ -828,12 +943,24 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
         i->key->setSelectionStateIfNeeded(SelectionNone);
 
     // set selection start and end
-    m_selectionStart = start;
-    m_selectionStartPos = startPos;
-    m_selectionEnd = end;
-    m_selectionEndPos = endPos;
+    selectionStart = start;
+    selectionStartPos = startPos;
+    selectionEnd = end;
+    selectionEndPos = endPos;
 
-    // Update the selection status of all objects between m_selectionStart and m_selectionEnd
+    if (flowThread) {
+        flowThread->setSelectionStart(selectionStart);
+        flowThread->setSelectionStartPos(selectionStartPos);
+        flowThread->setSelectionEnd(selectionEnd);
+        flowThread->setSelectionEndPos(selectionEndPos);
+    } else {
+        m_selectionStart = selectionStart;
+        m_selectionStartPos = selectionStartPos;
+        m_selectionEnd = selectionEnd;
+        m_selectionEndPos = selectionEndPos;
+    }
+
+    // Update the selection status of all objects between selectionStart and selectionEnd
     if (start && start == end)
         start->setSelectionStateIfNeeded(SelectionBoth);
     else {
@@ -864,7 +991,7 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
         if ((o->canBeSelectionLeaf() || o == start || o == end) && o->selectionState() != SelectionNone) {
             newSelectedObjects.set(o, adoptPtr(new RenderSelectionInfo(o, true)));
             RenderBlock* cb = o->containingBlock();
-            while (cb && !cb->isRenderView()) {
+            while (cb && !cb->isRenderView() && !cb->isRenderFlowThread()) {
                 OwnPtr<RenderBlockSelectionInfo>& blockInfo = newSelectedBlocks.add(cb, nullptr).iterator->value;
                 if (blockInfo)
                     break;
@@ -887,8 +1014,8 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
         RenderSelectionInfo* newInfo = newSelectedObjects.get(obj);
         RenderSelectionInfo* oldInfo = i->value.get();
         if (!newInfo || oldInfo->rect() != newInfo->rect() || oldInfo->state() != newInfo->state() ||
-            (m_selectionStart == obj && oldStartPos != m_selectionStartPos) ||
-            (m_selectionEnd == obj && oldEndPos != m_selectionEndPos)) {
+            (selectionStart == obj && oldStartPos != selectionStartPos) ||
+            (selectionEnd == obj && oldEndPos != selectionEndPos)) {
             oldInfo->repaint();
             if (newInfo) {
                 newInfo->repaint();

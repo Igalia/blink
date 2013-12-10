@@ -60,6 +60,10 @@ RenderFlowThread::RenderFlowThread()
     , m_pageLogicalSizeChanged(false)
     , m_inConstrainedLayoutPhase(false)
     , m_needsTwoPhasesLayout(false)
+    , m_selectionStart(0)
+    , m_selectionStartPos(-1)
+    , m_selectionEnd(0)
+    , m_selectionEndPos(-1)
 {
     setFlowThreadState(InsideOutOfFlowThread);
 }
@@ -1157,6 +1161,12 @@ void RenderFlowThread::mapLocalToContainer(const RenderLayerModelObject* repaint
         // FIXME: The cast below is probably not the best solution, we may need to find a better way.
         static_cast<const RenderObject*>(region)->mapLocalToContainer(region->containerForRepaint(), transformState, mode, wasFixed);
     }
+}
+
+void RenderFlowThread::selectionStartEnd(int& startPos, int& endPos) const
+{
+    startPos = m_selectionStartPos;
+    endPos = m_selectionEndPos;
 }
 
 CurrentRenderFlowThreadMaintainer::CurrentRenderFlowThreadMaintainer(RenderFlowThread* renderFlowThread)

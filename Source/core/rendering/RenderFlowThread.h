@@ -175,6 +175,18 @@ public:
     // Used to estimate the maximum height of the flow thread.
     static LayoutUnit maxLogicalHeight() { return LayoutUnit::max() / 2; }
 
+    RenderObject* selectionStart() const { return m_selectionStart; }
+    int selectionStartPos() const { return m_selectionStartPos; }
+    RenderObject* selectionEnd() const { return m_selectionEnd; }
+    int selectionEndPos() const { return m_selectionEndPos; }
+
+    void setSelectionStart(RenderObject* selectionStart) { m_selectionStart = selectionStart; }
+    void setSelectionStartPos(int selectionStartPos) { m_selectionStartPos = selectionStartPos; }
+    void setSelectionEnd(RenderObject* selectionEnd) { m_selectionEnd = selectionEnd; }
+    void setSelectionEndPos(int selectionEndPos) { m_selectionEndPos = selectionEndPos; }
+
+    void selectionStartEnd(int& startPos, int& endPos) const;
+
 protected:
     virtual const char* renderName() const = 0;
 
@@ -292,6 +304,11 @@ protected:
 
 private:
     virtual bool supportsPartialLayout() const OVERRIDE { return false; }
+
+    RenderObject* m_selectionStart;
+    int m_selectionStartPos;
+    RenderObject* m_selectionEnd;
+    int m_selectionEndPos;
 
 };
 

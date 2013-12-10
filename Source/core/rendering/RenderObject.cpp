@@ -1756,7 +1756,11 @@ Color RenderObject::selectionEmphasisMarkColor() const
 
 void RenderObject::selectionStartEnd(int& spos, int& epos) const
 {
-    view()->selectionStartEnd(spos, epos);
+    RenderFlowThread* flowThread = flowThreadContainingBlock();
+    if (flowThread)
+        flowThread->selectionStartEnd(spos, epos);
+    else
+        view()->selectionStartEnd(spos, epos);
 }
 
 void RenderObject::handleDynamicFloatPositionChange()

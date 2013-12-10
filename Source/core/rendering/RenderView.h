@@ -91,6 +91,7 @@ public:
 
     enum SelectionRepaintMode { RepaintNewXOROld, RepaintNewMinusOld, RepaintNothing };
     void setSelection(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode = RepaintNewXOROld);
+    void setSelectionOld(RenderObject* start, int startPos, RenderObject* end, int endPos, SelectionRepaintMode = RepaintNewXOROld, RenderFlowThread* flowThread = 0);
     void getSelection(RenderObject*& startRenderer, int& startOffset, RenderObject*& endRenderer, int& endOffset) const;
     void clearSelection();
     RenderObject* selectionStart() const { return m_selectionStart; }
@@ -98,6 +99,7 @@ public:
     IntRect selectionBounds(bool clipToVisibleContent = true) const;
     void selectionStartEnd(int& startPos, int& endPos) const;
     void repaintSelection() const;
+    void repaintSelectionOld(RenderFlowThread* flowThread = 0) const;
 
     virtual void absoluteRects(Vector<IntRect>&, const LayoutPoint& accumulatedOffset) const;
     virtual void absoluteQuads(Vector<FloatQuad>&, bool* wasFixed) const;
