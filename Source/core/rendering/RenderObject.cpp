@@ -876,6 +876,19 @@ RenderBlock* RenderObject::containingBlock() const
     return toRenderBlock(o);
 }
 
+bool RenderObject::isContentNode() const {
+    if (isText())
+        return false;
+    return style()->hasFlowInto();
+}
+
+RenderBlock* RenderObject::containingBlockDomBased() const {
+    if (!isContentNode())
+        return containingBlock();
+
+    return (RenderBlock*) node()->parentNode()->renderer();
+}
+
 static bool mustRepaintFillLayers(const RenderObject* renderer, const FillLayer* layer)
 {
     // Nobody will use multiple layers without wanting fancy positioning.

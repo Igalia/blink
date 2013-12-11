@@ -82,7 +82,7 @@ void RenderBoxModelObject::setSelectionState(SelectionState state)
     // FIXME: We should consider whether it is OK propagating to ancestor RenderInlines.
     // This is a workaround for http://webkit.org/b/32123
     // The containing block can be null in case of an orphaned tree.
-    RenderBlock* containingBlock = this->containingBlock();
+    RenderBlock* containingBlock = this->containingBlockDomBased();
     if (containingBlock && !containingBlock->isRenderView())
         containingBlock->setSelectionState(state);
 }

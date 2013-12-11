@@ -722,6 +722,8 @@ public:
 
     // returns the containing block level element for this element.
     RenderBlock* containingBlock() const;
+    bool isContentNode() const;
+    RenderBlock* containingBlockDomBased() const;
 
     bool canContainFixedPositionObjects() const
     {
