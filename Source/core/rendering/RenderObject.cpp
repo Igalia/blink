@@ -32,6 +32,7 @@
 #include "core/accessibility/AXObjectCache.h"
 #include "core/animation/ActiveAnimations.h"
 #include "core/css/resolver/StyleResolver.h"
+#include "core/dom/NodeTraversal.h"
 #include "core/editing/EditingBoundary.h"
 #include "core/editing/FrameSelection.h"
 #include "core/editing/htmlediting.h"
@@ -378,6 +379,29 @@ RenderObject* RenderObject::nextInPreOrderAfterChildren() const
     }
 
     return o;
+}
+
+RenderObject* RenderObject::nextInPreOrderDomBased() const
+{
+    if (RenderObject* o = firstChild())
+        return o;
+
+    return nextInPreOrderAfterChildrenDomBased();
+}
+
+RenderObject* RenderObject::nextInPreOrderAfterChildrenDomBased() const
+{
+    Node* currentNode = node();
+    if (!currentNode)
+        return nextInPreOrderAfterChildren();
+
+    for (currentNode = NodeTraversal::next(*currentNode); currentNode; currentNode = NodeTraversal::next(*currentNode)) {
+        RenderObject* renderer = currentNode->renderer();
+        if (renderer)
+            return renderer;
+    }
+
+    return 0;
 }
 
 RenderObject* RenderObject::nextInPreOrder(const RenderObject* stayWithin) const

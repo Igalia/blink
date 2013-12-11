@@ -666,7 +666,7 @@ static RenderObject* rendererAfterPosition(RenderObject* object, unsigned offset
         return 0;
 
     RenderObject* child = object->childAt(offset);
-    return child ? child : object->nextInPreOrderAfterChildren();
+    return child ? child : object->nextInPreOrderAfterChildrenDomBased();
 }
 
 IntRect RenderView::selectionBounds(bool clipToVisibleContent) const
@@ -690,7 +690,7 @@ IntRect RenderView::selectionBounds(bool clipToVisibleContent) const
             }
         }
 
-        os = os->nextInPreOrder();
+        os = os->nextInPreOrderDomBased();
     }
 
     // Now create a single bounding box rect that encloses the whole selection.
@@ -714,7 +714,7 @@ void RenderView::repaintSelection() const
     HashSet<RenderBlock*> processedBlocks;
 
     RenderObject* end = rendererAfterPosition(m_selectionEnd, m_selectionEndPos);
-    for (RenderObject* o = m_selectionStart; o && o != end; o = o->nextInPreOrder()) {
+    for (RenderObject* o = m_selectionStart; o && o != end; o = o->nextInPreOrderDomBased()) {
         if (!o->canBeSelectionLeaf() && o != m_selectionStart && o != m_selectionEnd)
             continue;
         if (o->selectionState() == SelectionNone)
@@ -796,7 +796,7 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
             }
         }
 
-        os = os->nextInPreOrder();
+        os = os->nextInPreOrderDomBased();
     }
 
     // Now clear the selection.
@@ -826,7 +826,7 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
     while (o && o != stop) {
         if (o != start && o != end && o->canBeSelectionLeaf())
             o->setSelectionStateIfNeeded(SelectionInside);
-        o = o->nextInPreOrder();
+        o = o->nextInPreOrderDomBased();
     }
 
     if (blockRepaintMode != RepaintNothing)
@@ -848,7 +848,7 @@ void RenderView::setSelection(RenderObject* start, int startPos, RenderObject* e
             }
         }
 
-        o = o->nextInPreOrder();
+        o = o->nextInPreOrderDomBased();
     }
 
     if (!m_frameView || blockRepaintMode == RepaintNothing)
