@@ -2457,9 +2457,9 @@ GapRects RenderBlock::blockSelectionGaps(RenderBlock* rootBlock, const LayoutPoi
 
     // Go ahead and jump right to the first block child that contains some selected objects.
     RenderBox* curr;
-    for (curr = firstChildBox(); curr && curr->selectionState() == SelectionNone; curr = curr->nextSiblingBox()) { }
+    for (curr = firstChildBoxDomBased(); curr && curr->selectionState() == SelectionNone; curr = curr->nextSiblingBoxDomBased()) { }
 
-    for (bool sawSelectionEnd = false; curr && !sawSelectionEnd; curr = curr->nextSiblingBox()) {
+    for (bool sawSelectionEnd = false; curr && !sawSelectionEnd; curr = curr->nextSiblingBoxDomBased()) {
         SelectionState childState = curr->selectionState();
         if (childState == SelectionBoth || childState == SelectionEnd)
             sawSelectionEnd = true;

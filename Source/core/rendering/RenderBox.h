@@ -60,6 +60,7 @@ public:
 
     // Use this with caution! No type checking is done!
     RenderBox* firstChildBox() const;
+    RenderBox* firstChildBoxDomBased() const;
     RenderBox* lastChildBox() const;
 
     LayoutUnit x() const { return m_frameRect.x(); }
@@ -174,6 +175,7 @@ public:
     // Use this with caution! No type checking is done!
     RenderBox* previousSiblingBox() const;
     RenderBox* nextSiblingBox() const;
+    RenderBox* nextSiblingBoxDomBased() const;
     RenderBox* parentBox() const;
 
     bool canResize() const;
@@ -724,6 +726,11 @@ inline RenderBox* RenderBox::nextSiblingBox() const
     return toRenderBox(nextSibling());
 }
 
+inline RenderBox* RenderBox::nextSiblingBoxDomBased() const
+{
+    return toRenderBox(node()->nextSibling()->renderer());
+}
+
 inline RenderBox* RenderBox::parentBox() const
 {
     return toRenderBox(parent());
@@ -732,6 +739,11 @@ inline RenderBox* RenderBox::parentBox() const
 inline RenderBox* RenderBox::firstChildBox() const
 {
     return toRenderBox(firstChild());
+}
+
+inline RenderBox* RenderBox::firstChildBoxDomBased() const
+{
+    return toRenderBox(node()->firstChild()->renderer());
 }
 
 inline RenderBox* RenderBox::lastChildBox() const
